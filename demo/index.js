@@ -5,6 +5,7 @@ function App() {
 
     return (
         <div>
+            <div>Hello React!</div>
             <button onClick={() => setCount(count + 1)}>{count}</button>
         </div>
     )

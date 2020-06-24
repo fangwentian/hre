@@ -223,10 +223,11 @@ function reconcileChildren(workInProgressFiber, elements) {
 }
 
 // 申明两个全局变量，用来处理useState
-// wipFiber是当前的函数组件fiber节点
+// wipFiber 是当前的函数组件fiber节点
 // hookIndex是当前函数组件内部useState状态计数
 let wipFiber = null;
 let hookIndex = null;
+
 function useState(init) {
   // 取出上次的Hook
   const oldHook = wipFiber.alternate && wipFiber.alternate.hooks && wipFiber.alternate.hooks[hookIndex];
