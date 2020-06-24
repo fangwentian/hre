@@ -1,3 +1,13 @@
+/*
+流程解析
+1. 构建一个在空闲时间循环执行的任务，超时了就继续放入requestIdleCallback，等下次有空闲的时候再执行
+2. nextUnitOfWork 标记执行的位置，下次从这里开始
+3. 递归执行每一个节点，添加 parent -> child -> 第一个child, child -> sibling -> child，child -> return -> parent 的关系，构建这个关系的目的是让任务在任意位置停下来时候都能继续递归执行。
+4. 递归的时候，比较新旧节点的变化，标记PLACE(新增)，UPDATE(更新), DELETE(删除)，delete的放入deletions数组，最后统一删除
+5. 任务都执行完毕，最后进行commit操作，进行真正的dom操作
+6. 关于useState: 在fiber.hooks里依次push进去每一次的hook, useState 返回的第一个结果就是重新赋值后的state, 同时以当前
+*/
+
 import { createText, createDom } from './h'
 
 let currentRoot = null               // 上一次的根fiber
@@ -18,6 +28,8 @@ export function render(vnode, container) {
     requestIdleCallback(workloop)
 }
 
+// 循环执行 performUnitOfWork，超时了就继续放到requestIdleCallback
+// 全部执行完了进行 commit
 const workloop = (deadline) => {
     // 有任务且没超时
     while(nextUnitOfWork && deadline.timeRemaining() > 1) {
@@ -37,6 +49,7 @@ const workloop = (deadline) => {
 
 // 处理当前fiber, 并返回下一个fiber
 const performUnitOfWork = (fiber) => {
+    // 构建当前fiber和children fiber的关联关系
     if(isFn(fiber.type)) {
         updateFunctionComponent(fiber)
     } else {
@@ -74,8 +87,8 @@ const updateHostComponent = (fiber) => {
     reconcileChildren(fiber, children)
 }
 
-// 标记处理children这一层, 将children转换成fiber结构
-// 添加父 -> 第一个子child属性；子 -> 父return 属性；子 -> 兄弟sibling属性 
+// 处理children这一层, 将children转换成fiber结构
+// 添加父 -> 第一个子child属性；子 -> 父return 属性；子 -> 兄弟sibling属性
 const reconcileChildren = (fiber, children = []) => {
     if(children.length == 0) {
         return false
@@ -161,6 +174,7 @@ export function useState (initState) {
     hookIndex++
 
     const setState = (state) => {
+        // 修改了hook.state之后，组件fiber.type(fiber.props)执行之后，拿到的就是新的state
         hook.state = state
         workInProgressRoot = {
             dom: currentRoot.dom,
@@ -183,12 +197,15 @@ const commitRoot = () => {
     deletions = []
 }
 
+// 正在的dom操作
 const commitRootImpl = (fiber) => {
     if(!fiber) {
         return
     }
 
     let parentFiber = fiber.return
+
+    // 取到真正的dom fiber
     while(!parentFiber.dom) {
         parentFiber = parentFiber.return
     }
@@ -210,35 +227,37 @@ const commitRootImpl = (fiber) => {
 
 const commitDeletion = (fiber, domParent) => {
     if(fiber.dom) {
-      // dom存在，是普通节点
-      domParent.removeChild(fiber.dom);
+        // dom存在，是普通节点
+        domParent.removeChild(fiber.dom);
     } else {
-      // dom不存在，是函数组件,向下递归查找真实DOM
-      commitDeletion(fiber.child, domParent);
+        // dom不存在，是函数组件,向下递归查找真实DOM
+        commitDeletion(fiber.child, domParent);
     }
 }
-
+ 
 const updateDom = (dom, prevProps, nextProps) => {
+    // 老的有，新的没有，删除
     Object.keys(prevProps)
         .filter(name => name !== 'children')
         .filter(name => !(name in nextProps))
         .forEach(name => {
             if(name.indexOf('on') === 0) {
-            dom.removeEventListener(name.substr(2).toLowerCase(), prevProps[name], false);
+                dom.removeEventListener(name.substr(2).toLowerCase(), prevProps[name], false);
             } else {
-            dom[name] = '';
+                dom[name] = '';
             }
-        });
-  
+        })
+    
+    // 新的有，覆盖
     Object.keys(nextProps)
         .filter(name => name !== 'children')
         .forEach(name => {
             if(name.indexOf('on') === 0) {
-            dom.addEventListener(name.substr(2).toLowerCase(), nextProps[name], false);
+                dom.addEventListener(name.substr(2).toLowerCase(), nextProps[name], false);
             } else {
-            dom[name] = nextProps[name];
+                dom[name] = nextProps[name];
             }
-        });
+        })
 }
 
 const isFn = (fn) => (typeof fn === 'function')

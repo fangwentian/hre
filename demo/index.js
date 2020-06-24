@@ -5,7 +5,7 @@ function App() {
 
     return (
         <div>
-            <div>Hello React!</div>
+            <div>Hello React! { count + 10 }</div>
             <button onClick={() => setCount(count + 1)}>{count}</button>
         </div>
     )
