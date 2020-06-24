@@ -1,6 +1,5 @@
-import { useState } from './hooks'
 import { createElement } from './h'
-import { render } from './reconciler'
+import { useState, render } from './reconciler'
 
 
 export {
