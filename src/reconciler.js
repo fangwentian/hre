@@ -55,6 +55,7 @@ const performUnitOfWork = (fiber) => {
     } else {
         updateHostComponent(fiber)
     }
+    
     // 深度优先遍历, 有child返回child, 无child返回sibling, 也无sibling, 继续找其父节点的sibling
     if(fiber.child) {
         return fiber.child
@@ -94,10 +95,10 @@ const reconcileChildren = (fiber, children = []) => {
         return false
     }
 
-    // 父fiber的第一个child
+    // 如果之前已经构建过父 -> 子的关系，oldFiber表示上一次父fiber的第一个child。
     let oldFiber = fiber.alternate && fiber.alternate.child
 
-    // 如果不存在，说明
+    // 之前没有构建过fiber的，新构建
     if(!oldFiber) {
         let preSibling = null
         for(let i = 0; i < children.length; i++) {
@@ -137,11 +138,12 @@ const reconcileChildren = (fiber, children = []) => {
             // 类型不一样，有新节点，创建
             newFiber = createNewFiber(element, fiber)
         } else if(oldFiber) {
+            // 无element，有oldFiber，表示是多出来的，要删除
             oldFiber.effectTag = 'DELETE'
             deletions.push(oldFiber)
         }
 
-        // 比较下一个oldFiber
+        // 比较下一个oldFiber和下一个child
         oldFiber = oldFiber.sibling
         if(j === 0) {
             fiber.child = newFiber
@@ -197,7 +199,7 @@ const commitRoot = () => {
     deletions = []
 }
 
-// 正在的dom操作
+// 真正的dom操作
 const commitRootImpl = (fiber) => {
     if(!fiber) {
         return

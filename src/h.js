@@ -36,6 +36,10 @@ export function createDom(vDom) {
 }
 
 export function createElement(type, props, ...children) {
+    console.log('type:', type)
+    console.log('props:', props)
+    console.log('children: ', children)
+    
     return {
         type,
         props: {
