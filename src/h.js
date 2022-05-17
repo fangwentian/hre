@@ -9,7 +9,7 @@ export function createText(text) {
             children: []
         }
     }
-  }
+}
 
 export function createDom(vDom) {
     let dom;
@@ -18,7 +18,7 @@ export function createDom(vDom) {
         dom = document.createTextNode(vDom.props.nodeValue);
     } else {
         dom = document.createElement(vDom.type);
-    
+
         // 将vDom上除了children外的属性都挂载到真正的DOM上去
         if(vDom.props) {
             Object.keys(vDom.props)
@@ -39,7 +39,7 @@ export function createElement(type, props, ...children) {
     console.log('type:', type)
     console.log('props:', props)
     console.log('children: ', children)
-    
+
     return {
         type,
         props: {

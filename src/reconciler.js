@@ -5,7 +5,7 @@
 3. 递归执行每一个节点，添加 parent -> child -> 第一个child, child -> sibling -> child，child -> return -> parent 的关系，构建这个关系的目的是让任务在任意位置停下来时候都能继续递归执行。
 4. 递归的时候，比较新旧节点的变化，标记PLACE(新增)，UPDATE(更新), DELETE(删除)，delete的放入deletions数组，最后统一删除
 5. 任务都执行完毕，最后进行commit操作，进行真正的dom操作
-6. 关于useState: 在fiber.hooks里依次push进去每一次的hook, useState 返回的第一个结果就是重新赋值后的state, 同时以当前
+6. 关于useState: 在fiber.hooks里依次push进去每一次的hook, useState 返回的第一个结果就是重新赋值后的state. setState方法修改state的值，并且触发workloop启动更新
 */
 
 import { createText, createDom } from './h'
@@ -36,7 +36,7 @@ const workloop = (deadline) => {
         nextUnitOfWork = performUnitOfWork(nextUnitOfWork)
     }
 
-    // 有任务, 但超时了
+    // 有任务, 但超时了, 下次空闲时继续执行
     if(nextUnitOfWork) {
         requestIdleCallback(workloop)
     }
@@ -55,7 +55,7 @@ const performUnitOfWork = (fiber) => {
     } else {
         updateHostComponent(fiber)
     }
-    
+
     // 深度优先遍历, 有child返回child, 无child返回sibling, 也无sibling, 继续找其父节点的sibling
     if(fiber.child) {
         return fiber.child
@@ -71,7 +71,7 @@ const performUnitOfWork = (fiber) => {
 }
 
 const updateFunctionComponent = (fiber) => {
-    // 标记wipFiber, 等下执行到组件里的useState的时候就用这个wipFiber 
+    // 标记wipFiber, 等下面 fiber.type(fiber.props) 执行到组件里的useState的时候就用这个wipFiber
     wipFiber = fiber
     hookIndex = 0
     wipFiber.hooks = []
@@ -98,15 +98,18 @@ const reconcileChildren = (fiber, children = []) => {
     // 如果之前已经构建过父 -> 子的关系，oldFiber表示上一次父fiber的第一个child。
     let oldFiber = fiber.alternate && fiber.alternate.child
 
-    // 之前没有构建过fiber的，新构建
+    // 之前没有构建过fiber的，新构建children这一层的fiber结构
     if(!oldFiber) {
         let preSibling = null
         for(let i = 0; i < children.length; i++) {
             let element = children[i]
+            // 创建一个新的fiber结构，记录为PLACE
             let newFiber = createNewFiber(element, fiber)
             if(i == 0) {
+                // 父的child指向第一个child
                 fiber.child = newFiber
             } else {
+                // 设置sibling
                 preSibling && (preSibling.sibling = newFiber)
             }
             preSibling = newFiber
@@ -207,7 +210,7 @@ const commitRootImpl = (fiber) => {
 
     let parentFiber = fiber.return
 
-    // 取到真正的dom fiber
+    // 取到真正的dom fiber，因为function组件是没有dom的
     while(!parentFiber.dom) {
         parentFiber = parentFiber.return
     }
@@ -232,11 +235,11 @@ const commitDeletion = (fiber, domParent) => {
         // dom存在，是普通节点
         domParent.removeChild(fiber.dom);
     } else {
-        // dom不存在，是函数组件,向下递归查找真实DOM
+        // dom不存在，是函数组件, 向下递归查找真实DOM
         commitDeletion(fiber.child, domParent);
     }
 }
- 
+
 const updateDom = (dom, prevProps, nextProps) => {
     // 老的有，新的没有，删除
     Object.keys(prevProps)
@@ -249,7 +252,7 @@ const updateDom = (dom, prevProps, nextProps) => {
                 dom[name] = '';
             }
         })
-    
+
     // 新的有，覆盖
     Object.keys(nextProps)
         .filter(name => name !== 'children')
